@@ -1,15 +1,37 @@
 #include <stdio.h>
 #include <string>
 #include <iostream>
+#include <sstream>
 
 #include <switch.h>
 #include <curl/curl.h>
 #include <nlohmann/json.hpp>
-//#include <pugixml/src/pugixml.hpp>
+#include <md5/md5.h>
 
 using json = nlohmann::json;
 
-std::string SIGN_SALT = "XGRlBW9FXlekgbPrRHuSiA";
+const std::string SIGN_SALT = "XGRlBW9FXlekgbPrRHuSiA";
+
+std::string hexDigest(std::string s)
+{
+    printf("hexDigest\n");
+    std::cout << s << "\n\n";
+
+    std::ostringstream hex;
+
+    for (int i = 0; i < (int) s.length(); i++)
+        hex << std::hex << std::uppercase << (int) s[i];
+
+    return hex.str();
+}
+
+std::string getXmlValue(std::string xml, std::string tag)
+{
+    size_t beginIndex = xml.find(tag) + tag.length();
+    size_t endIndex = xml.find(tag.insert(1, 1, '/'));
+
+    return xml.substr(beginIndex, endIndex - beginIndex);
+}
 
 size_t writeResponse(void *ptr, size_t size, size_t count, std::string *stream)
 {
@@ -31,10 +53,9 @@ void getNetworkData(std::string url, std::string &responseContainer)
     if (curl)
     {
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-        curl_easy_setopt(curl, CURLOPT_USERAGENT, "libnx curl example/1.0");
+        curl_easy_setopt(curl, CURLOPT_USERAGENT, "ymapi");
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeResponse);
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, &responseContainer);
-        // Add any other options here.
 
         printf("curl_easy_perform\n");
         consoleUpdate(NULL);
@@ -43,7 +64,12 @@ void getNetworkData(std::string url, std::string &responseContainer)
 
         if (res != CURLE_OK)
             printf("curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+
+        // In an actual app you should return an error on failure, following cleanup.
     }
+
+    printf("curl_easy_cleanup\n");
+    consoleUpdate(NULL);
 
     curl_easy_cleanup(curl);
 }
@@ -51,32 +77,38 @@ void getNetworkData(std::string url, std::string &responseContainer)
 std::string buildDirectLink(std::string downloadInfoLink)
 {
     printf("buildDirectLink");
+    consoleUpdate(NULL);
 
     std::string downloadInfo;
-    //pugi::xml_document downloadInfoDocument;
 
     getNetworkData(downloadInfoLink, downloadInfo);
 
-    std::cout << downloadInfo;
+    std::cout << downloadInfo << "\n\n";
 
-    //pugi::xml_parse_result documentParsed = downloadInfoDocument.load_string(downloadInfo.c_str());
+    std::string host = getXmlValue(downloadInfo, "<host>");
+    std::string path = getXmlValue(downloadInfo, "<path>");
+    std::string ts = getXmlValue(downloadInfo, "<ts>");
+    std::string s = getXmlValue(downloadInfo, "<s>");
 
-    //if (documentParsed)
+    std::string sign = hexDigest(md5(SIGN_SALT + path.substr(1) + s));
 
-    return "directLink";
+    std::cout << host << "\n"
+              << path << "\n"
+              << ts   << "\n"
+              << s    << "\n";
+
+    consoleUpdate(NULL);
+    
+    std::stringstream directLink;
+    directLink << "https://" << host << "/get-mp3/" << sign << "/" << ts << path;
+
+    return directLink.str();
 }
 
 std::string getTrackDownloadLink(int trackId)
 {
-    //CURL *curl;
-    //CURLcode res;
-
-    //curl_global_init(CURL_GLOBAL_DEFAULT);
-
     std::stringstream generalInfoLink;
     std::string generalInfo;
-    json generalInfoJson;
-    std::string directLink;
     
     generalInfoLink << "https://api.music.yandex.net/tracks/" << std::to_string(trackId) << "/download-info";
 
@@ -88,22 +120,13 @@ std::string getTrackDownloadLink(int trackId)
     std::cout << generalInfo << "!!!\n";
     consoleUpdate(NULL);
 
-    generalInfoJson = json::parse(generalInfo); 
+    json generalInfoJson = json::parse(generalInfo); 
     std::string downloadInfoLink = generalInfoJson["result"][0]["downloadInfoUrl"];
 
-    printf("buildDirectLink");
-    consoleUpdate(NULL);
-
-    directLink = buildDirectLink(downloadInfoLink);
+    std::string directLink = buildDirectLink(downloadInfoLink);
 
     std::cout << directLink << "\n";
     consoleUpdate(NULL);
-
-    // In an actual app you should return an error on failure, following cleanup.
-
-    printf("cleanup\n");
-    //curl_easy_cleanup(curl);
-    //curl_global_cleanup();
 
     return directLink;
 }
