@@ -8,6 +8,8 @@
 #include <nlohmann/json.hpp>
 #include <md5/md5.h>
 
+#include <Request.hpp>
+
 using json = nlohmann::json;
 
 const std::string SIGN_SALT = "XGRlBW9FXlekgbPrRHuSiA";
@@ -33,55 +35,11 @@ std::string getXmlValue(std::string xml, std::string tag)
     return xml.substr(beginIndex, endIndex - beginIndex);
 }
 
-size_t writeResponse(void *ptr, size_t size, size_t count, std::string *stream)
-{
-    printf("writeResponse\n");
-    stream->append((char *)ptr, 0, size *count);
-
-    return size *count;
-}
-
-void getNetworkData(std::string url, std::string &responseContainer)
-{
-    CURL *curl;
-    CURLcode res;
-
-    printf("curl init\n");
-
-    curl = curl_easy_init();
-
-    if (curl)
-    {
-        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-        curl_easy_setopt(curl, CURLOPT_USERAGENT, "ymapi");
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeResponse);
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &responseContainer);
-
-        printf("curl_easy_perform\n");
-        consoleUpdate(NULL);
-
-        res = curl_easy_perform(curl);
-
-        if (res != CURLE_OK)
-            printf("curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
-
-        // In an actual app you should return an error on failure, following cleanup.
-    }
-
-    printf("curl_easy_cleanup\n");
-    consoleUpdate(NULL);
-
-    curl_easy_cleanup(curl);
-}
-
 std::string buildDirectLink(std::string downloadInfoLink)
 {
     printf("buildDirectLink");
-    consoleUpdate(NULL);
 
-    std::string downloadInfo;
-
-    getNetworkData(downloadInfoLink, downloadInfo);
+    std::string downloadInfo = Request::get(downloadInfoLink);
 
     std::cout << downloadInfo << "\n\n";
 
@@ -94,11 +52,9 @@ std::string buildDirectLink(std::string downloadInfoLink)
 
     std::cout << host << "\n"
               << path << "\n"
-              << ts   << "\n"
-              << s    << "\n";
+              << ts << "\n"
+              << s << "\n";
 
-    consoleUpdate(NULL);
-    
     std::stringstream directLink;
     directLink << "https://" << host << "/get-mp3/" << sign << "/" << ts << path;
 
@@ -109,24 +65,22 @@ std::string getTrackDownloadLink(int trackId)
 {
     std::stringstream generalInfoLink;
     std::string generalInfo;
-    
+
     generalInfoLink << "https://api.music.yandex.net/tracks/" << std::to_string(trackId) << "/download-info";
 
     std::cout << generalInfoLink.str().c_str() << "\n";
 
-    getNetworkData(generalInfoLink.str(), generalInfo);
+    generalInfo = Request::get(generalInfoLink.str());
 
     printf("jsonParse\n");
     std::cout << generalInfo << "!!!\n";
-    consoleUpdate(NULL);
 
-    json generalInfoJson = json::parse(generalInfo); 
+    json generalInfoJson = json::parse(generalInfo);
     std::string downloadInfoLink = generalInfoJson["result"][0]["downloadInfoUrl"];
 
     std::string directLink = buildDirectLink(downloadInfoLink);
 
     std::cout << directLink << "\n";
-    consoleUpdate(NULL);
 
     return directLink;
 }
