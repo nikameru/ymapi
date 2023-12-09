@@ -68,19 +68,16 @@ std::string getTrackDownloadLink(int trackId)
 
     generalInfoLink << "https://api.music.yandex.net/tracks/" << std::to_string(trackId) << "/download-info";
 
-    std::cout << generalInfoLink.str().c_str() << "\n";
-
     generalInfo = Request::get(generalInfoLink.str());
-
-    printf("jsonParse\n");
-    std::cout << generalInfo << "!!!\n";
 
     json generalInfoJson = json::parse(generalInfo);
     std::string downloadInfoLink = generalInfoJson["result"][0]["downloadInfoUrl"];
 
+    std::cout << "[getTrackDownloadLink]\n" << std::setw(4) << generalInfoJson << "\n";
+
     std::string directLink = buildDirectLink(downloadInfoLink);
 
-    std::cout << directLink << "\n";
+    std::cout << "[getTrackDownloadLink]\n" << directLink << "\n";
 
     return directLink;
 }
