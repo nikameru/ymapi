@@ -10,7 +10,7 @@ using json = nlohmann::json;
 
 static size_t writeResponseData(void *ptr, size_t size, size_t count, std::string *stream)
 {
-    printf("[writeResponse]\n");
+    printf("[writeResponseData]\n");
 
     stream->append((char *)ptr, 0, size *count);
 
